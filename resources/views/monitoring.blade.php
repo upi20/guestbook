@@ -38,6 +38,11 @@
     .bulk-bar.show { display: block; }
     .chk-cell { width: 36px; text-align: center; }
     .chk-cell input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+    /* ── Foto clickable thumbnail ── */
+    .foto-thumb { cursor: pointer; transition: opacity .15s; }
+    .foto-thumb:hover { opacity: .75; }
+    #fotoModalImg { max-width: 100%; max-height: 80vh; border-radius: 8px; }
 </style>
 @endpush
 
@@ -195,6 +200,22 @@
         </div>
     </div>
 </div>
+
+{{-- Foto preview modal --}}
+<div class="modal fade" id="fotoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 bg-transparent shadow-none">
+            <div class="modal-body p-0 text-center">
+                <img id="fotoModalImg" src="" alt="Foto Tamu">
+            </div>
+            <div class="text-center mt-2">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -293,7 +314,7 @@ $(function () {
             var t = data.tamu;
             var waktu = fmtTime(t.waktu_datang);
             var fotoHtml = t.foto_url
-                ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto">'
+                ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto" data-src="' + t.foto_url + '" role="button">'
                 : '';
             var row = '<tr class="row-flash" data-id="' + t.id + '">';
             if (IS_ADMIN) {
@@ -355,7 +376,7 @@ $(function () {
         var html = '';
         $.each(items, function (i, t) {
             var fotoHtml = t.foto_url
-                ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto">'
+                ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto" data-src="' + t.foto_url + '" role="button">'
                 : '';
             html += '<tr data-id="' + t.id + '">';
             if (IS_ADMIN) {
@@ -497,6 +518,16 @@ $(function () {
             error: function () { alert('Gagal menyimpan.'); },
             complete: function () { $btn.prop('disabled', false); }
         });
+    });
+
+    // ── Foto preview modal ──
+    var fotoModal = null;
+    $(document).on('click', '.foto-thumb', function () {
+        var src = $(this).data('src') || $(this).attr('src');
+        if (!src) return;
+        $('#fotoModalImg').attr('src', src);
+        if (!fotoModal) fotoModal = new bootstrap.Modal('#fotoModal');
+        fotoModal.show();
     });
 
     // ── Admin: single delete ──
