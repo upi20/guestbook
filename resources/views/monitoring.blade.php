@@ -24,6 +24,20 @@
         margin-right: 5px;
         vertical-align: middle;
     }
+
+    /* ── Admin styles ── */
+    .admin-actions { white-space: nowrap; }
+    .admin-actions .btn { padding: 2px 6px; font-size: 0.78rem; }
+    .bulk-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: #fff; border-top: 2px solid #dc3545;
+        padding: 10px 16px; z-index: 1040;
+        display: none;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+    .bulk-bar.show { display: block; }
+    .chk-cell { width: 36px; text-align: center; }
+    .chk-cell input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
 </style>
 @endpush
 
@@ -100,6 +114,85 @@
                 </button>
             </small>
         </div>
+
+        {{-- Spacer for bulk bar --}}
+        <div id="bulkSpacer" style="height:0;"></div>
+    </div>
+</div>
+
+{{-- Bulk delete bar --}}
+<div class="bulk-bar" id="bulkBar">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <span><strong id="bulkCount">0</strong> item dipilih</span>
+        <div>
+            <button class="btn btn-outline-secondary btn-sm me-1" id="bulkCancel">
+                Batal
+            </button>
+            <button class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                <i class="bi bi-trash me-1"></i> Hapus Terpilih
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- Edit modal --}}
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-semibold">Edit Data Tamu</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="mb-3">
+                    <label class="form-label">Nama Rombongan</label>
+                    <input type="text" class="form-control" id="editNama" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Jumlah Orang</label>
+                    <input type="number" class="form-control" id="editJumlah" min="1" max="999" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Kategori</label>
+                    <select class="form-select" id="editKategori">
+                        <option value="Keluarga">Keluarga</option>
+                        <option value="VIP">VIP</option>
+                        <option value="Undangan">Undangan</option>
+                        <option value="Umum">Umum</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Keterangan</label>
+                    <textarea class="form-control" id="editKeterangan" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="editSaveBtn">
+                    <i class="bi bi-check-lg me-1"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Delete confirmation modal --}}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-1 fw-semibold">Hapus data ini?</p>
+                <p class="text-muted small mb-0" id="deleteInfo"></p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger btn-sm" id="deleteConfirmBtn">
+                    <i class="bi bi-trash me-1"></i> Hapus
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
@@ -110,6 +203,16 @@
 
 <script>
 $(function () {
+
+    var IS_ADMIN = new URLSearchParams(window.location.search).get('superadmin') === '1';
+
+    // ── Setup admin columns ──
+    if (IS_ADMIN) {
+        // Add checkbox header + actions header
+        $('#recentTable').closest('table').find('thead tr')
+            .prepend('<th class="chk-cell"><input type="checkbox" id="chkAll"></th>')
+            .append('<th style="width:80px;"></th>');
+    }
 
     var CATEGORY_COLORS = {
         'Keluarga': '#1d4ed8',
@@ -192,13 +295,24 @@ $(function () {
             var fotoHtml = t.foto_url
                 ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto">'
                 : '';
-            var row = '<tr class="row-flash">' +
-                '<td class="text-muted">' + waktu + '</td>' +
+            var row = '<tr class="row-flash" data-id="' + t.id + '">';
+            if (IS_ADMIN) {
+                row += '<td class="chk-cell"><input type="checkbox" class="chk-row" value="' + t.id + '"></td>';
+            }
+            row += '<td class="text-muted">' + waktu + '</td>' +
                 '<td class="fw-medium">' + esc(t.nama_rombongan) + '</td>' +
                 '<td class="text-end fw-semibold">' + t.jumlah_orang + '</td>' +
                 '<td>' + badge(t.kategori) + '</td>' +
-                '<td>' + fotoHtml + '</td>' +
-                '</tr>';
+                '<td>' + fotoHtml + '</td>';
+            if (IS_ADMIN) {
+                row += '<td class="admin-actions">' +
+                    '<button class="btn btn-outline-secondary btn-edit" data-id="' + t.id + '" data-nama="' + escAttr(t.nama_rombongan) + '" data-jumlah="' + t.jumlah_orang + '" data-kategori="' + escAttr(t.kategori || '') + '" data-keterangan="' + escAttr(t.keterangan || '') + '" title="Edit">' +
+                    '<i class="bi bi-pencil"></i></button> ' +
+                    '<button class="btn btn-outline-danger btn-delete" data-id="' + t.id + '" data-nama="' + escAttr(t.nama_rombongan) + '" title="Hapus">' +
+                    '<i class="bi bi-trash"></i></button>' +
+                    '</td>';
+            }
+            row += '</tr>';
 
             if ($('#recentTable tr td[colspan]').length) {
                 $('#recentTable').empty();
@@ -230,10 +344,12 @@ $(function () {
     }
 
     function renderRecent(items) {
+        var cols = IS_ADMIN ? 7 : 5;
         if (!items || items.length === 0) {
             $('#recentTable').html(
-                '<tr><td colspan="5" class="text-center text-muted py-4">Belum ada tamu terdaftar.</td></tr>'
+                '<tr><td colspan="' + cols + '" class="text-center text-muted py-4">Belum ada tamu terdaftar.</td></tr>'
             );
+            updateBulkBar();
             return;
         }
         var html = '';
@@ -241,15 +357,27 @@ $(function () {
             var fotoHtml = t.foto_url
                 ? '<img src="' + t.foto_url + '" class="foto-thumb" alt="Foto">'
                 : '';
-            html += '<tr>' +
-                '<td class="text-muted">' + fmtTime(t.waktu_datang) + '</td>' +
+            html += '<tr data-id="' + t.id + '">';
+            if (IS_ADMIN) {
+                html += '<td class="chk-cell"><input type="checkbox" class="chk-row" value="' + t.id + '"></td>';
+            }
+            html += '<td class="text-muted">' + fmtTime(t.waktu_datang) + '</td>' +
                 '<td class="fw-medium">' + esc(t.nama_rombongan) + '</td>' +
                 '<td class="text-end fw-semibold">' + t.jumlah_orang + '</td>' +
                 '<td>' + badge(t.kategori) + '</td>' +
-                '<td>' + fotoHtml + '</td>' +
-                '</tr>';
+                '<td>' + fotoHtml + '</td>';
+            if (IS_ADMIN) {
+                html += '<td class="admin-actions">' +
+                    '<button class="btn btn-outline-secondary btn-edit" data-id="' + t.id + '" data-nama="' + escAttr(t.nama_rombongan) + '" data-jumlah="' + t.jumlah_orang + '" data-kategori="' + escAttr(t.kategori || '') + '" data-keterangan="' + escAttr(t.keterangan || '') + '" title="Edit">' +
+                    '<i class="bi bi-pencil"></i></button> ' +
+                    '<button class="btn btn-outline-danger btn-delete" data-id="' + t.id + '" data-nama="' + escAttr(t.nama_rombongan) + '" title="Hapus">' +
+                    '<i class="bi bi-trash"></i></button>' +
+                    '</td>';
+            }
+            html += '</tr>';
         });
         $('#recentTable').html(html);
+        updateBulkBar();
     }
 
     function badge(kat) {
@@ -276,6 +404,128 @@ $(function () {
         d.appendChild(document.createTextNode(text || ''));
         return d.innerHTML;
     }
+
+    function escAttr(text) {
+        return (text || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+    }
+
+    // ── Admin: bulk select ──
+    function updateBulkBar() {
+        if (!IS_ADMIN) return;
+        var count = $('.chk-row:checked').length;
+        $('#bulkCount').text(count);
+        if (count > 0) {
+            $('#bulkBar').addClass('show');
+            $('#bulkSpacer').css('height', '60px');
+        } else {
+            $('#bulkBar').removeClass('show');
+            $('#bulkSpacer').css('height', '0');
+        }
+    }
+
+    $(document).on('change', '.chk-row', updateBulkBar);
+    $(document).on('change', '#chkAll', function () {
+        $('.chk-row').prop('checked', this.checked);
+        updateBulkBar();
+    });
+
+    $('#bulkCancel').on('click', function () {
+        $('.chk-row, #chkAll').prop('checked', false);
+        updateBulkBar();
+    });
+
+    // ── Admin: bulk delete ──
+    $('#bulkDeleteBtn').on('click', function () {
+        var ids = $('.chk-row:checked').map(function () { return +this.value; }).get();
+        if (!ids.length) return;
+        if (!confirm('Hapus ' + ids.length + ' data tamu?')) return;
+
+        var $btn = $(this);
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        $.ajax({
+            url: '/api/tamu/bulk-delete',
+            type: 'POST',
+            data: JSON.stringify({ ids: ids }),
+            contentType: 'application/json',
+            headers: { 'X-CSRF-TOKEN': $('meta[name=csrf-token]').attr('content') },
+            success: function () {
+                loadData();
+                $('#chkAll').prop('checked', false);
+                updateBulkBar();
+            },
+            error: function () { alert('Gagal menghapus.'); },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="bi bi-trash me-1"></i> Hapus Terpilih');
+            }
+        });
+    });
+
+    // ── Admin: single edit ──
+    var editModal = null;
+    $(document).on('click', '.btn-edit', function () {
+        var $b = $(this);
+        $('#editId').val($b.data('id'));
+        $('#editNama').val($b.data('nama'));
+        $('#editJumlah').val($b.data('jumlah'));
+        $('#editKategori').val($b.data('kategori') || 'Undangan');
+        $('#editKeterangan').val($b.data('keterangan'));
+        if (!editModal) editModal = new bootstrap.Modal('#editModal');
+        editModal.show();
+    });
+
+    $('#editSaveBtn').on('click', function () {
+        var id = $('#editId').val();
+        var $btn = $(this);
+        $btn.prop('disabled', true);
+
+        $.ajax({
+            url: '/api/tamu/' + id,
+            type: 'PUT',
+            data: JSON.stringify({
+                nama_rombongan: $('#editNama').val(),
+                jumlah_orang: parseInt($('#editJumlah').val()) || 1,
+                kategori: $('#editKategori').val(),
+                keterangan: $('#editKeterangan').val()
+            }),
+            contentType: 'application/json',
+            headers: { 'X-CSRF-TOKEN': $('meta[name=csrf-token]').attr('content') },
+            success: function () {
+                editModal.hide();
+                loadData();
+            },
+            error: function () { alert('Gagal menyimpan.'); },
+            complete: function () { $btn.prop('disabled', false); }
+        });
+    });
+
+    // ── Admin: single delete ──
+    var deleteModal = null;
+    var deleteId = null;
+    $(document).on('click', '.btn-delete', function () {
+        deleteId = $(this).data('id');
+        $('#deleteInfo').text($(this).data('nama'));
+        if (!deleteModal) deleteModal = new bootstrap.Modal('#deleteModal');
+        deleteModal.show();
+    });
+
+    $('#deleteConfirmBtn').on('click', function () {
+        if (!deleteId) return;
+        var $btn = $(this);
+        $btn.prop('disabled', true);
+
+        $.ajax({
+            url: '/api/tamu/' + deleteId,
+            type: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': $('meta[name=csrf-token]').attr('content') },
+            success: function () {
+                deleteModal.hide();
+                loadData();
+            },
+            error: function () { alert('Gagal menghapus.'); },
+            complete: function () { $btn.prop('disabled', false); deleteId = null; }
+        });
+    });
 });
 </script>
 @endpush

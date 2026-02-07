@@ -44,7 +44,7 @@
 
     /* ── Jumlah custom input ── */
     #jumlah_custom {
-        width: 64px; height: 44px; text-align: center;
+        width: 84px; height: 44px; text-align: center;
         font-size: 1.1rem; font-weight: 700; border-radius: 8px;
     }
 
