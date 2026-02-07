@@ -97,6 +97,62 @@ class GuestbookController extends Controller
         ]);
     }
 
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $tamu = Tamu::findOrFail($id);
+
+        $validated = $request->validate([
+            'nama_rombongan' => 'required|string|max:255',
+            'jumlah_orang'   => 'required|integer|min:1|max:999',
+            'kategori'       => 'nullable|string|max:100',
+            'keterangan'     => 'nullable|string|max:500',
+        ]);
+
+        $tamu->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'tamu'    => $tamu->fresh(),
+        ]);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $tamu = Tamu::findOrFail($id);
+
+        // Hapus foto jika ada
+        if ($tamu->foto) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($tamu->foto);
+        }
+
+        $tamu->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $ids = $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:tamu,id',
+        ])['ids'];
+
+        // Hapus foto-foto terkait
+        $tamus = Tamu::whereIn('id', $ids)->get();
+        foreach ($tamus as $t) {
+            if ($t->foto) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($t->foto);
+            }
+        }
+
+        Tamu::whereIn('id', $ids)->delete();
+
+        return response()->json([
+            'success' => true,
+            'deleted' => count($ids),
+        ]);
+    }
+
     private function perKategori(): array
     {
         return Tamu::selectRaw('kategori, SUM(jumlah_orang) as total')

@@ -105,57 +105,56 @@
 @endsection
 
 @push('scripts')
-{{-- Pusher JS (Reverb menggunakan protokol Pusher) --}}
-<script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0-rc2/dist/web/pusher.min.js"></script>
-{{-- Laravel Echo --}}
-<script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.17.1/dist/echo.iife.js"></script>
+{{-- Pusher Channels JS --}}
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
 
 <script>
 $(function () {
 
     var CATEGORY_COLORS = {
-        'Keluarga': '#2563eb',
+        'Keluarga': '#1d4ed8',
         'VIP':      '#7c3aed',
-        'Undangan': '#0891b2',
-        'Umum':     '#4b5563',
+        'Undangan': '#0e7490',
+        'Umum':     '#374151',
         'Lainnya':  '#6b7280'
+    };
+    var CATEGORY_ICONS = {
+        'Keluarga': 'bi-house-heart',
+        'VIP':      'bi-star',
+        'Undangan': 'bi-envelope-paper',
+        'Umum':     'bi-people',
+        'Lainnya':  'bi-tag'
     };
 
     // ── Initial load ──
     loadData();
     $('#btnRefresh').on('click', loadData);
 
-    // ── WebSocket via Reverb ──
+    // ── WebSocket via Pusher ──
     try {
-        window.Echo = new Echo({
-            broadcaster: 'reverb',
-            key: '{{ env("REVERB_APP_KEY", "local") }}',
-            wsHost: window.location.hostname,
-            wsPort: parseInt('{{ env("REVERB_PORT", "8080") }}'),
-            wssPort: parseInt('{{ env("REVERB_PORT", "443") }}'),
-            forceTLS: window.location.protocol === 'https:',
-            enabledTransports: ['ws', 'wss'],
-            disableStats: true,
+        var pusher = new Pusher('{{ env("PUSHER_APP_KEY") }}', {
+            cluster: '{{ env("PUSHER_APP_CLUSTER", "mt1") }}',
+            forceTLS: true,
         });
 
-        window.Echo.connector.pusher.connection.bind('connected', function () {
+        pusher.connection.bind('connected', function () {
             $('#statusDot').removeClass('disconnected');
             $('#statusText').text('Live');
         });
-        window.Echo.connector.pusher.connection.bind('disconnected', function () {
+        pusher.connection.bind('disconnected', function () {
             $('#statusDot').addClass('disconnected');
             $('#statusText').text('Terputus');
         });
-        window.Echo.connector.pusher.connection.bind('error', function () {
+        pusher.connection.bind('error', function () {
             $('#statusDot').addClass('disconnected');
             $('#statusText').text('Offline — auto-refresh');
             startPolling();
         });
 
-        window.Echo.channel('guestbook')
-            .listen('.tamu.baru', function (data) {
-                updateDashboard(data);
-            });
+        var channel = pusher.subscribe('guestbook');
+        channel.bind('tamu.baru', function (data) {
+            updateDashboard(data);
+        });
 
     } catch (e) {
         console.warn('WebSocket tidak tersedia, fallback ke polling.', e);
@@ -220,10 +219,11 @@ $(function () {
         var html = '';
         $.each(obj, function (kat, total) {
             var color = CATEGORY_COLORS[kat] || '#4b5563';
+            var icon = CATEGORY_ICONS[kat] || 'bi-tag';
             html += '<div class="col-6 col-md-3">' +
                 '<div class="card"><div class="card-body text-center py-3">' +
                 '<div class="stat-number" style="color:' + color + ';">' + fmt(total) + '</div>' +
-                '<div class="counter-label">' + esc(kat) + '</div>' +
+                '<div class="counter-label"><i class="bi ' + icon + ' me-1" style="color:' + color + ';"></i>' + esc(kat) + '</div>' +
                 '</div></div></div>';
         });
         $('#kategoriCards').html(html);
@@ -254,7 +254,9 @@ $(function () {
 
     function badge(kat) {
         var label = kat || '—';
-        return '<span class="badge bg-light text-dark border">' + esc(label) + '</span>';
+        var color = CATEGORY_COLORS[kat] || '#6b7280';
+        var icon = CATEGORY_ICONS[kat] || 'bi-tag';
+        return '<span class="badge bg-light border" style="color:' + color + ';"><i class="bi ' + icon + ' me-1"></i>' + esc(label) + '</span>';
     }
 
     function fmt(n) {
