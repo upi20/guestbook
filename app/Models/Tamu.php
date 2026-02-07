@@ -26,6 +26,6 @@ class Tamu extends Model
 
     public function getFotoUrlAttribute(): ?string
     {
-        return $this->foto ? asset('storage/' . $this->foto) : null;
+        return $this->foto ? asset($this->foto) : null;
     }
 }

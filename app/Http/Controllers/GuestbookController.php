@@ -41,7 +41,10 @@ class GuestbookController extends Controller
 
         $fotoPath = null;
         if ($request->hasFile('foto')) {
-            $fotoPath = $request->file('foto')->store('foto-tamu', 'public');
+            $file = $request->file('foto');
+            $filename = uniqid('tamu_') . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/foto-tamu'), $filename);
+            $fotoPath = 'uploads/foto-tamu/' . $filename;
         }
 
         $tamu = Tamu::create([
@@ -121,8 +124,8 @@ class GuestbookController extends Controller
         $tamu = Tamu::findOrFail($id);
 
         // Hapus foto jika ada
-        if ($tamu->foto) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($tamu->foto);
+        if ($tamu->foto && file_exists(public_path($tamu->foto))) {
+            @unlink(public_path($tamu->foto));
         }
 
         $tamu->delete();
@@ -140,8 +143,8 @@ class GuestbookController extends Controller
         // Hapus foto-foto terkait
         $tamus = Tamu::whereIn('id', $ids)->get();
         foreach ($tamus as $t) {
-            if ($t->foto) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($t->foto);
+            if ($t->foto && file_exists(public_path($t->foto))) {
+                @unlink(public_path($t->foto));
             }
         }
 
