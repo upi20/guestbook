@@ -79,6 +79,10 @@
             <i class="bi bi-arrow-left"></i>
         </a>
         <h1 class="h5 fw-bold mb-0">Form Buku Tamu</h1>
+        <button type="button" class="btn btn-primary btn-sm ms-auto d-flex align-items-center gap-1 btnSimpan"
+                style="padding: 6px 14px; font-weight: 600;">
+            <i class="bi bi-send-check" style="font-size: 1rem;"></i> Simpan
+        </button>
     </div>
 
     {{-- Toast container (fixed, tidak geser layout) --}}
@@ -232,7 +236,7 @@
 {{-- Fixed Simpan button --}}
 <div class="fixed-bottom-bar">
     <div class="container" style="max-width: 560px;">
-        <button type="button" class="btn btn-primary btn-lg w-100" id="btnSimpan">
+        <button type="button" class="btn btn-primary btn-lg w-100 btnSimpan" id="btnSimpanBottom">
             <i class="bi bi-check-lg me-1"></i> Simpan
         </button>
     </div>
@@ -290,8 +294,8 @@ $(function () {
         $('#fotoEmpty').removeClass('d-none');
     });
 
-    // ── Submit (triggered by fixed button) ──
-    $('#btnSimpan').on('click', function () {
+    // ── Submit (triggered by either Simpan button) ──
+    $('.btnSimpan').on('click', function () {
         $('#formTamu').trigger('submit');
     });
 
@@ -306,9 +310,9 @@ $(function () {
         }
         $('#nama_rombongan').removeClass('is-invalid');
 
-        var $btn = $('#btnSimpan');
-        $btn.prop('disabled', true)
-            .html('<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...');
+        var $btns = $('.btnSimpan');
+        $btns.prop('disabled', true);
+        $('#btnSimpanBottom').html('<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...');
 
         var formData = new FormData(this);
 
@@ -363,8 +367,8 @@ $(function () {
                 showToast('danger', msg);
             },
             complete: function () {
-                $btn.prop('disabled', false)
-                    .html('<i class="bi bi-check-lg me-1"></i> Simpan');
+                $btns.prop('disabled', false);
+                $('#btnSimpanBottom').html('<i class="bi bi-check-lg me-1"></i> Simpan');
             }
         });
     });
